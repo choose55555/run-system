@@ -1,205 +1,396 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>跑步训练系统 Pro</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>跑步训练系统 Pro + 周趋势</title>
 <style>
-body{
+  body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
     margin:0;
     background:#0f172a;
     color:#f1f5f9;
-    padding:20px;
-}
-.container{max-width:520px;margin:auto;}
-h2{text-align:center;margin-bottom:15px;}
-.card{
+    padding:18px;
+  }
+  .container{max-width:560px;margin:auto;}
+  h2{margin:10px 0 14px 0;text-align:center;}
+  .card{
     background:#1e293b;
-    padding:15px;
+    padding:14px;
     border-radius:12px;
-    margin-bottom:15px;
-}
-input{
+    margin-bottom:14px;
+  }
+  label{display:block;margin-top:8px;color:#cbd5e1;font-size:14px;}
+  input{
     width:100%;
     padding:10px;
-    margin:6px 0 12px 0;
-    border-radius:8px;
+    margin:6px 0 4px 0;
+    border-radius:10px;
     border:none;
-}
-button{
+    outline:none;
+    background:#0b1220;
+    color:#f1f5f9;
+  }
+  .row{display:flex;gap:10px;}
+  .row > div{flex:1;}
+  button{
     width:100%;
     padding:12px;
     border:none;
-    border-radius:8px;
+    border-radius:10px;
     background:#3b82f6;
     color:white;
     font-size:16px;
-    margin-top:5px;
-}
-canvas{
+    margin-top:10px;
+    cursor:pointer;
+  }
+  .muted{color:#94a3b8;font-size:12px;line-height:1.4;}
+  .result b{color:#e2e8f0;}
+  canvas{
     width:100%;
-    height:180px;
-    background:#111827;
-    border-radius:10px;
-}
-.history{
+    height:190px;
+    background:#0b1220;
+    border-radius:12px;
+    display:block;
+  }
+  .history{
     font-size:13px;
-    max-height:150px;
+    max-height:170px;
     overflow:auto;
-}
-.small{font-size:12px;color:#94a3b8;}
+    line-height:1.55;
+  }
+  .pill{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:999px;
+    font-size:12px;
+    background:#0b1220;
+    color:#cbd5e1;
+    margin-left:6px;
+  }
+  .btn-secondary{
+    background:#334155;
+  }
+  .two-btn{
+    display:flex;
+    gap:10px;
+    margin-top:10px;
+  }
+  .two-btn button{margin-top:0;}
 </style>
 </head>
 <body>
-
 <div class="container">
-<h2>跑步训练系统 Pro</h2>
+  <h2>跑步训练系统 Pro <span class="pill">周趋势版</span></h2>
 
-<div class="card">
-<label>年龄</label>
-<input type="number" id="age">
+  <div class="card">
+    <div class="row">
+      <div>
+        <label>年龄</label>
+        <input type="number" id="age" placeholder="例如 40" />
+      </div>
+      <div>
+        <label>体重 (kg)</label>
+        <input type="number" id="weight" placeholder="例如 70" />
+      </div>
+    </div>
 
-<label>体重 (kg)</label>
-<input type="number" id="weight">
+    <div class="row">
+      <div>
+        <label>配速 (分钟/公里)</label>
+        <input type="number" step="0.1" id="pace" placeholder="例如 6.0" />
+      </div>
+      <div>
+        <label>时长 (分钟)</label>
+        <input type="number" id="duration" placeholder="例如 45" />
+      </div>
+    </div>
 
-<label>配速 (分钟/公里)</label>
-<input type="number" step="0.1" id="pace">
+    <label>平均心率 (bpm)</label>
+    <input type="number" id="hr" placeholder="例如 150" />
 
-<label>本次运动时长 (分钟)</label>
-<input type="number" id="duration">
+    <div class="muted">
+      最大心率自动计算：<b>220 - 年龄</b>（可用作个人工具的默认估算）
+    </div>
 
-<label>平均心率 (bpm)</label>
-<input type="number" id="hr">
+    <button onclick="calculate()">开始分析并保存</button>
+  </div>
 
-<button onclick="calculate()">开始分析</button>
-</div>
+  <div class="card result" id="result">
+    <div class="muted">填写数据后点击“开始分析并保存”。</div>
+  </div>
 
-<div class="card" id="result"></div>
+  <div class="card">
+    <b>区间图（心率落点）</b>
+    <div class="muted">颜色带表示 Zone1-5，白线是你这次的心率位置。</div>
+    <canvas id="zoneChart"></canvas>
+  </div>
 
-<div class="card">
-<canvas id="chart"></canvas>
-</div>
+  <div class="card">
+    <b>周趋势（最近7天）</b>
+    <div class="muted">三条柱状图：训练分钟数、消耗(kcal)、训练负荷（强度系数×时长）。</div>
+    <canvas id="weekChart"></canvas>
+  </div>
 
-<div class="card">
-<b>历史记录</b>
-<div class="history" id="history"></div>
-<button onclick="clearHistory()">清空记录</button>
-</div>
+  <div class="card">
+    <b>历史记录</b>
+    <div class="history" id="history"></div>
 
+    <div class="two-btn">
+      <button class="btn-secondary" onclick="exportData()">导出数据（复制到剪贴板）</button>
+      <button class="btn-secondary" onclick="clearHistory()">清空记录</button>
+    </div>
+
+    <div class="muted" style="margin-top:10px;">
+      数据存储位置：你的浏览器本地（localStorage）。不在 GitHub。换设备不会同步。
+    </div>
+  </div>
 </div>
 
 <script>
+/** ====== 核心：区间规则（按心率占最大心率百分比）====== **/
+function zoneFromPercent(p){
+  // 返回：{zoneName, recovery, met, loadFactor}
+  if(p < 0.6) return { zoneName:"Zone 1 恢复区", recovery:"极短", met:4,  loadFactor:1 };
+  if(p < 0.7) return { zoneName:"Zone 2 有氧基础区", recovery:"较短", met:6,  loadFactor:2 };
+  if(p < 0.8) return { zoneName:"Zone 3 有氧耐力区", recovery:"一般", met:8,  loadFactor:3 };
+  if(p < 0.9) return { zoneName:"Zone 4 阈值区",   recovery:"较长", met:10, loadFactor:4 };
+  return           { zoneName:"Zone 5 极限区",   recovery:"长",   met:12, loadFactor:5 };
+}
 
+/** ====== 计算并保存 ====== **/
 function calculate(){
-    const age=parseInt(document.getElementById("age").value);
-    const weight=parseFloat(document.getElementById("weight").value);
-    const pace=parseFloat(document.getElementById("pace").value);
-    const duration=parseFloat(document.getElementById("duration").value);
-    const hr=parseInt(document.getElementById("hr").value);
+  const age = parseInt(document.getElementById("age").value);
+  const weight = parseFloat(document.getElementById("weight").value);
+  const pace = parseFloat(document.getElementById("pace").value);
+  const duration = parseFloat(document.getElementById("duration").value);
+  const hr = parseInt(document.getElementById("hr").value);
 
-    if(!age||!weight||!pace||!duration||!hr){
-        alert("请填写完整数据");
-        return;
-    }
+  if(!age || !weight || !pace || !duration || !hr){
+    alert("请填写完整数据");
+    return;
+  }
 
-    const maxHr=220-age;
-    const percent=hr/maxHr;
+  const maxHr = 220 - age;
+  const percent = hr / maxHr;
 
-    let zone="";
-    let recovery="";
-    let MET=6;
+  const z = zoneFromPercent(percent);
 
-    if(percent<0.6){
-        zone="Zone 1 恢复区";
-        recovery="恢复时间：极短";
-        MET=4;
-    }else if(percent<0.7){
-        zone="Zone 2 有氧区";
-        recovery="恢复时间：较短";
-        MET=6;
-    }else if(percent<0.8){
-        zone="Zone 3 耐力区";
-        recovery="恢复时间：一般";
-        MET=8;
-    }else if(percent<0.9){
-        zone="Zone 4 阈值区";
-        recovery="恢复时间：较长";
-        MET=10;
-    }else{
-        zone="Zone 5 极限区";
-        recovery="恢复时间：长";
-        MET=12;
-    }
+  // 卡路里：MET * 体重 * 小时
+  const calories = z.met * weight * (duration/60);
 
-    // 卡路里计算
-    const calories = MET * weight * (duration/60);
+  // 训练负荷（简单可用）：区间系数 * 时长
+  const load = z.loadFactor * duration;
 
-    document.getElementById("result").innerHTML=
-        "<b>最大心率：</b>"+maxHr+" bpm"+
-        "<br><b>当前区间：</b>"+zone+
-        "<br><b>心率比例：</b>"+Math.round(percent*100)+"%"+
-        "<br><b>卡路里消耗：</b>"+Math.round(calories)+" kcal"+
-        "<br><b>恢复建议：</b>"+recovery;
+  document.getElementById("result").innerHTML =
+    "<b>最大心率：</b>" + maxHr + " bpm" +
+    "<br><b>心率比例：</b>" + Math.round(percent*100) + "%" +
+    "<br><b>当前区间：</b>" + z.zoneName +
+    "<br><b>恢复建议：</b>" + z.recovery +
+    "<br><b>卡路里估算：</b>" + Math.round(calories) + " kcal" +
+    "<br><b>训练负荷：</b>" + Math.round(load);
 
-    drawChart(percent);
-    saveHistory(zone,calories);
+  drawZoneChart(percent);
+  saveHistory({age, weight, pace, duration, hr, maxHr, percent, zone:z.zoneName, calories, load});
+  loadHistory();
+  drawWeekChart();
 }
 
-function drawChart(percent){
-    const canvas=document.getElementById("chart");
-    const ctx=canvas.getContext("2d");
-    canvas.width=canvas.offsetWidth;
-    canvas.height=180;
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+/** ====== 区间图：颜色带 + 落点线 ====== **/
+function drawZoneChart(percent){
+  const canvas = document.getElementById("zoneChart");
+  const ctx = canvas.getContext("2d");
+  canvas.width = canvas.offsetWidth;
+  canvas.height = 190;
 
-    const zones=[0.6,0.7,0.8,0.9,1.0];
-    const colors=["#22c55e","#84cc16","#eab308","#f97316","#ef4444"];
-    let startX=0;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    for(let i=0;i<zones.length;i++){
-        let width=canvas.width*(zones[i]-(zones[i-1]||0));
-        ctx.fillStyle=colors[i];
-        ctx.fillRect(startX,60,width,40);
-        startX+=width;
-    }
+  const zones=[0.6,0.7,0.8,0.9,1.0];
+  const colors=["#22c55e","#84cc16","#eab308","#f97316","#ef4444"];
 
-    ctx.strokeStyle="#fff";
-    ctx.lineWidth=3;
-    let xPos=canvas.width*percent;
-    ctx.beginPath();
-    ctx.moveTo(xPos,40);
-    ctx.lineTo(xPos,120);
-    ctx.stroke();
+  let startX = 0;
+  for(let i=0;i<zones.length;i++){
+    const prev = (i===0)?0:zones[i-1];
+    const w = canvas.width*(zones[i]-prev);
+    ctx.fillStyle = colors[i];
+    ctx.fillRect(startX, 75, w, 40);
+    startX += w;
+  }
+
+  // 落点线
+  const xPos = Math.max(0, Math.min(canvas.width, canvas.width*percent));
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(xPos, 50);
+  ctx.lineTo(xPos, 140);
+  ctx.stroke();
+
+  // 标注
+  ctx.fillStyle = "#cbd5e1";
+  ctx.font = "12px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto";
+  ctx.fillText("0%", 4, 170);
+  ctx.fillText("100%", canvas.width-38, 170);
 }
 
-function saveHistory(zone,calories){
-    let history=JSON.parse(localStorage.getItem("runHistory"))||[];
-    history.unshift({
-        time:new Date().toLocaleString(),
-        zone:zone,
-        calories:Math.round(calories)
-    });
-    localStorage.setItem("runHistory",JSON.stringify(history));
-    loadHistory();
+/** ====== 历史记录：localStorage ====== **/
+const KEY = "runHistory_v2";
+
+function saveHistory(item){
+  const arr = JSON.parse(localStorage.getItem(KEY) || "[]");
+  // 保存日期：用 YYYY-MM-DD 方便做周统计
+  const d = new Date();
+  const dateKey = d.toISOString().slice(0,10);
+  arr.unshift({
+    ...item,
+    time: d.toLocaleString(),
+    dateKey
+  });
+  localStorage.setItem(KEY, JSON.stringify(arr));
 }
 
 function loadHistory(){
-    let history=JSON.parse(localStorage.getItem("runHistory"))||[];
-    let html="";
-    history.forEach(item=>{
-        html+="<div>"+item.time+" | "+item.zone+" | "+item.calories+" kcal</div>";
-    });
-    document.getElementById("history").innerHTML=html;
+  const arr = JSON.parse(localStorage.getItem(KEY) || "[]");
+  if(arr.length === 0){
+    document.getElementById("history").innerHTML = "<div class='muted'>暂无记录</div>";
+    return;
+  }
+  let html = "";
+  arr.slice(0,60).forEach(it=>{
+    html += `<div>${it.time} | ${it.zone} | ${Math.round(it.calories)} kcal | 负荷 ${Math.round(it.load)}</div>`;
+  });
+  if(arr.length > 60){
+    html += `<div class="muted">仅显示最近60条（本地仍保留全部）。</div>`;
+  }
+  document.getElementById("history").innerHTML = html;
 }
 
 function clearHistory(){
-    localStorage.removeItem("runHistory");
-    loadHistory();
+  localStorage.removeItem(KEY);
+  loadHistory();
+  drawWeekChart();
+  document.getElementById("result").innerHTML = "<div class='muted'>记录已清空。</div>";
 }
 
-loadHistory();
+/** ====== 导出：把JSON复制到剪贴板（方便你备份/迁移）====== **/
+async function exportData(){
+  const arr = localStorage.getItem(KEY) || "[]";
+  try{
+    await navigator.clipboard.writeText(arr);
+    alert("已复制到剪贴板。你可以粘贴到备忘录/文件做备份。");
+  }catch(e){
+    // fallback
+    prompt("复制失败，你可以手动复制下面内容：", arr);
+  }
+}
 
+/** ====== 周趋势：最近7天聚合（分钟、kcal、负荷）====== **/
+function drawWeekChart(){
+  const canvas = document.getElementById("weekChart");
+  const ctx = canvas.getContext("2d");
+  canvas.width = canvas.offsetWidth;
+  canvas.height = 190;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const arr = JSON.parse(localStorage.getItem(KEY) || "[]");
+
+  // 生成最近7天的key（含今天）
+  const days = [];
+  const now = new Date();
+  for(let i=6;i>=0;i--){
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    const k = d.toISOString().slice(0,10);
+    const label = k.slice(5); // MM-DD
+    days.push({k, label, minutes:0, kcal:0, load:0});
+  }
+
+  // 聚合
+  const map = new Map(days.map(d=>[d.k,d]));
+  arr.forEach(it=>{
+    const slot = map.get(it.dateKey);
+    if(slot){
+      slot.minutes += (it.duration || 0);
+      slot.kcal += (it.calories || 0);
+      slot.load += (it.load || 0);
+    }
+  });
+
+  // 找最大值用于缩放
+  const maxMin = Math.max(1, ...days.map(d=>d.minutes));
+  const maxKcal = Math.max(1, ...days.map(d=>d.kcal));
+  const maxLoad = Math.max(1, ...days.map(d=>d.load));
+
+  // 三条柱状：每一天画三根小柱
+  const padding = 14;
+  const chartTop = 24;
+  const chartBottom = 158;
+  const chartH = chartBottom - chartTop;
+  const W = canvas.width - padding*2;
+
+  const groupW = W / days.length;
+  const barGap = Math.max(4, groupW*0.06);
+  const barW = Math.max(6, (groupW - barGap*4)/3);
+
+  // 轴线
+  ctx.strokeStyle = "#334155";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padding, chartBottom);
+  ctx.lineTo(canvas.width-padding, chartBottom);
+  ctx.stroke();
+
+  // 标题小图例
+  ctx.font = "12px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto";
+  ctx.fillStyle = "#cbd5e1";
+  ctx.fillText("分钟", padding, 14);
+  ctx.fillText("kcal", padding+46, 14);
+  ctx.fillText("负荷", padding+86, 14);
+
+  // 用固定三色（不依赖外部库）
+  const cMin = "#60a5fa";  // 蓝
+  const cKcal = "#34d399"; // 绿
+  const cLoad = "#fbbf24"; // 黄
+
+  // 画柱
+  days.forEach((d, idx)=>{
+    const x0 = padding + idx*groupW;
+
+    const hMin = (d.minutes/maxMin) * chartH;
+    const hKcal = (d.kcal/maxKcal) * chartH;
+    const hLoad = (d.load/maxLoad) * chartH;
+
+    // minutes
+    ctx.fillStyle = cMin;
+    ctx.fillRect(x0 + barGap, chartBottom - hMin, barW, hMin);
+
+    // kcal
+    ctx.fillStyle = cKcal;
+    ctx.fillRect(x0 + barGap*2 + barW, chartBottom - hKcal, barW, hKcal);
+
+    // load
+    ctx.fillStyle = cLoad;
+    ctx.fillRect(x0 + barGap*3 + barW*2, chartBottom - hLoad, barW, hLoad);
+
+    // x标签
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "11px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto";
+    ctx.fillText(d.label, x0 + 6, 178);
+  });
+
+  // 如果没数据，给提示
+  const sumAll = days.reduce((s,d)=>s + d.minutes + d.kcal + d.load, 0);
+  if(sumAll === 0){
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "12px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto";
+    ctx.fillText("最近7天暂无记录（先保存几次训练数据）", padding, 96);
+  }
+}
+
+/** 初始化 */
+loadHistory();
+drawWeekChart();
+drawZoneChart(0); // 初始空状态
 </script>
 </body>
 </html>
