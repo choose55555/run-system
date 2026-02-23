@@ -177,7 +177,28 @@ function calculate(){
   const z = zoneFromPercent(percent);
 
   // 卡路里：MET * 体重 * 小时
-  const calories = z.met * weight * (duration/60);
+  // ===== 修复：让卡路里受配速影响 =====
+// 1) 配速 -> 速度 km/h
+const speedKmh = 60 / pace;
+
+// 2) 速度 -> 基础 MET（粗略分段，足够做个人效率工具）
+// 你也可以后续换成更精细的模型
+let baseMET = 3;
+if (speedKmh < 5) baseMET = 3.0;          // 慢走
+else if (speedKmh < 6) baseMET = 3.8;     // 快走
+else if (speedKmh < 7) baseMET = 6.0;     // 慢跑
+else if (speedKmh < 8) baseMET = 7.5;     // 慢跑+
+else if (speedKmh < 9) baseMET = 9.0;     // 中速跑
+else if (speedKmh < 10) baseMET = 10.5;   // 中速+
+else if (speedKmh < 12) baseMET = 12.0;   // 较快
+else baseMET = 13.5;                      // 很快
+
+// 3) 心率区间做微调（让“同配速但更吃力”的情况更合理）
+const hrAdj = 0.90 + (z.loadFactor * 0.03); // Zone1≈0.93, Zone5≈1.05
+const finalMET = baseMET * hrAdj;
+
+// 4) 卡路里
+const calories = finalMET * weight * (duration/60);
 
   // 训练负荷（简单可用）：区间系数 * 时长
   const load = z.loadFactor * duration;
@@ -394,3 +415,4 @@ drawZoneChart(0); // 初始空状态
 </script>
 </body>
 </html>
+
