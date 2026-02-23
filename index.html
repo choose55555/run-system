@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>跑步训练系统 Pro</title>
+<style>
+body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
+    margin:0;
+    background:#0f172a;
+    color:#f1f5f9;
+    padding:20px;
+}
+.container{max-width:520px;margin:auto;}
+h2{text-align:center;margin-bottom:15px;}
+.card{
+    background:#1e293b;
+    padding:15px;
+    border-radius:12px;
+    margin-bottom:15px;
+}
+input{
+    width:100%;
+    padding:10px;
+    margin:6px 0 12px 0;
+    border-radius:8px;
+    border:none;
+}
+button{
+    width:100%;
+    padding:12px;
+    border:none;
+    border-radius:8px;
+    background:#3b82f6;
+    color:white;
+    font-size:16px;
+    margin-top:5px;
+}
+canvas{
+    width:100%;
+    height:180px;
+    background:#111827;
+    border-radius:10px;
+}
+.history{
+    font-size:13px;
+    max-height:150px;
+    overflow:auto;
+}
+.small{font-size:12px;color:#94a3b8;}
+</style>
+</head>
+<body>
+
+<div class="container">
+<h2>跑步训练系统 Pro</h2>
+
+<div class="card">
+<label>年龄</label>
+<input type="number" id="age">
+
+<label>体重 (kg)</label>
+<input type="number" id="weight">
+
+<label>配速 (分钟/公里)</label>
+<input type="number" step="0.1" id="pace">
+
+<label>本次运动时长 (分钟)</label>
+<input type="number" id="duration">
+
+<label>平均心率 (bpm)</label>
+<input type="number" id="hr">
+
+<button onclick="calculate()">开始分析</button>
+</div>
+
+<div class="card" id="result"></div>
+
+<div class="card">
+<canvas id="chart"></canvas>
+</div>
+
+<div class="card">
+<b>历史记录</b>
+<div class="history" id="history"></div>
+<button onclick="clearHistory()">清空记录</button>
+</div>
+
+</div>
+
+<script>
+
+function calculate(){
+    const age=parseInt(document.getElementById("age").value);
+    const weight=parseFloat(document.getElementById("weight").value);
+    const pace=parseFloat(document.getElementById("pace").value);
+    const duration=parseFloat(document.getElementById("duration").value);
+    const hr=parseInt(document.getElementById("hr").value);
+
+    if(!age||!weight||!pace||!duration||!hr){
+        alert("请填写完整数据");
+        return;
+    }
+
+    const maxHr=220-age;
+    const percent=hr/maxHr;
+
+    let zone="";
+    let recovery="";
+    let MET=6;
+
+    if(percent<0.6){
+        zone="Zone 1 恢复区";
+        recovery="恢复时间：极短";
+        MET=4;
+    }else if(percent<0.7){
+        zone="Zone 2 有氧区";
+        recovery="恢复时间：较短";
+        MET=6;
+    }else if(percent<0.8){
+        zone="Zone 3 耐力区";
+        recovery="恢复时间：一般";
+        MET=8;
+    }else if(percent<0.9){
+        zone="Zone 4 阈值区";
+        recovery="恢复时间：较长";
+        MET=10;
+    }else{
+        zone="Zone 5 极限区";
+        recovery="恢复时间：长";
+        MET=12;
+    }
+
+    // 卡路里计算
+    const calories = MET * weight * (duration/60);
+
+    document.getElementById("result").innerHTML=
+        "<b>最大心率：</b>"+maxHr+" bpm"+
+        "<br><b>当前区间：</b>"+zone+
+        "<br><b>心率比例：</b>"+Math.round(percent*100)+"%"+
+        "<br><b>卡路里消耗：</b>"+Math.round(calories)+" kcal"+
+        "<br><b>恢复建议：</b>"+recovery;
+
+    drawChart(percent);
+    saveHistory(zone,calories);
+}
+
+function drawChart(percent){
+    const canvas=document.getElementById("chart");
+    const ctx=canvas.getContext("2d");
+    canvas.width=canvas.offsetWidth;
+    canvas.height=180;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    const zones=[0.6,0.7,0.8,0.9,1.0];
+    const colors=["#22c55e","#84cc16","#eab308","#f97316","#ef4444"];
+    let startX=0;
+
+    for(let i=0;i<zones.length;i++){
+        let width=canvas.width*(zones[i]-(zones[i-1]||0));
+        ctx.fillStyle=colors[i];
+        ctx.fillRect(startX,60,width,40);
+        startX+=width;
+    }
+
+    ctx.strokeStyle="#fff";
+    ctx.lineWidth=3;
+    let xPos=canvas.width*percent;
+    ctx.beginPath();
+    ctx.moveTo(xPos,40);
+    ctx.lineTo(xPos,120);
+    ctx.stroke();
+}
+
+function saveHistory(zone,calories){
+    let history=JSON.parse(localStorage.getItem("runHistory"))||[];
+    history.unshift({
+        time:new Date().toLocaleString(),
+        zone:zone,
+        calories:Math.round(calories)
+    });
+    localStorage.setItem("runHistory",JSON.stringify(history));
+    loadHistory();
+}
+
+function loadHistory(){
+    let history=JSON.parse(localStorage.getItem("runHistory"))||[];
+    let html="";
+    history.forEach(item=>{
+        html+="<div>"+item.time+" | "+item.zone+" | "+item.calories+" kcal</div>";
+    });
+    document.getElementById("history").innerHTML=html;
+}
+
+function clearHistory(){
+    localStorage.removeItem("runHistory");
+    loadHistory();
+}
+
+loadHistory();
+
+</script>
+</body>
+</html>
